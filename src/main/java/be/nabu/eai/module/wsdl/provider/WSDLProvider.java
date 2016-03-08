@@ -13,6 +13,7 @@ import org.w3c.dom.Document;
 import be.nabu.eai.module.http.virtual.VirtualHostArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
+import be.nabu.eai.module.wsdl.client.WSDLInterface;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.authentication.api.Permission;
@@ -118,35 +119,38 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 						binding.setPortType(portType);
 						binding.setTransport(Transport.HTTP);
 						for (DefinedService service : getConfiguration().getServices()) {
+							WSDLInterface iface = null;
+							if (service.getServiceInterface().getParent() instanceof WSDLInterface) {
+								iface = (WSDLInterface) service.getServiceInterface().getParent();
+							}
 							String name = service.getId().replaceAll("^.*\\.", "");
 							OperationImpl operation = new OperationImpl();
-							operation.setName(name);
+							operation.setName(iface == null ? name : iface.getOperation().getOperation().getName());
 							operation.setDefinition(definition);
 							
 							MessagePartImpl inputPart = new MessagePartImpl();
 							inputPart.setDefinition(definition);
-							inputPart.setName(name);
-							ComplexElementImpl inputElement = new ComplexElementImpl(name, service.getServiceInterface().getInputDefinition(), null, new ValueImpl<String>(NamespaceProperty.getInstance(), getNamespace()));
+							inputPart.setName(iface == null || iface.getOperation().getOperation().getInput() == null || iface.getOperation().getOperation().getInput().getParts().isEmpty() ? name : iface.getOperation().getOperation().getInput().getParts().get(0).getName());
+							ComplexElementImpl inputElement = new ComplexElementImpl(getInputName(service), new UnnamedComplexType(service.getServiceInterface().getInputDefinition()), null, new ValueImpl<String>(NamespaceProperty.getInstance(), getNamespace()));
 							inputPart.setElement(inputElement);
 							MessageImpl inputMessage = new MessageImpl();
 							inputMessage.setDefinition(definition);
-							inputMessage.setName(name);
+							inputMessage.setName(iface == null || iface.getOperation().getOperation().getInput() == null ? name : iface.getOperation().getOperation().getInput().getName());
 							inputMessage.getParts().add(inputPart);
 							operation.setInput(inputMessage);
 							definition.getMessages().add(inputMessage);
 							
 							MessagePartImpl outputPart = new MessagePartImpl();
 							outputPart.setDefinition(definition);
-							outputPart.setName(name + "Response");
-							ComplexElementImpl outputElement = new ComplexElementImpl(name + "Response", service.getServiceInterface().getOutputDefinition(), null, new ValueImpl<String>(NamespaceProperty.getInstance(), getNamespace()));
+							outputPart.setName(iface == null || iface.getOperation().getOperation().getOutput() == null || iface.getOperation().getOperation().getOutput().getParts().isEmpty() ? name + "Response" : iface.getOperation().getOperation().getOutput().getParts().get(0).getName());
+							ComplexElementImpl outputElement = new ComplexElementImpl(getOutputName(service), new UnnamedComplexType(service.getServiceInterface().getOutputDefinition()), null, new ValueImpl<String>(NamespaceProperty.getInstance(), getNamespace()));
 							outputPart.setElement(outputElement);
 							MessageImpl outputMessage = new MessageImpl();
 							outputMessage.setDefinition(definition);
-							outputMessage.setName(name + "Response");
+							outputMessage.setName(iface == null || iface.getOperation().getOperation().getOutput() == null ? name + "Response" : iface.getOperation().getOperation().getOutput().getName());
 							outputMessage.getParts().add(outputPart);
 							operation.setOutput(outputMessage);
 							definition.getMessages().add(outputMessage);
-							// TODO: populate registry
 							
 							BindingOperationImpl bindingOperation = new BindingOperationImpl();
 							bindingOperation.setDefinition(definition);
@@ -154,7 +158,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 							bindingOperation.setUse(Use.LITERAL);
 							bindingOperation.setOperation(operation);
 							if (getSoapVersion() == 1.1) {
-								bindingOperation.setSoapAction(service.getId());
+								bindingOperation.setSoapAction(iface == null ? service.getId() : iface.getOperation().getSoapAction());
 							}
 							binding.getOperations().add(bindingOperation);
 							registry.register(inputElement);
@@ -191,6 +195,8 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 						definition.getServices().add(service);
 						
 						WSDLFormatter formatter = new WSDLFormatter();
+						formatter.setAttributeQualified(getConfiguration().getAttributeQualified() != null && getConfiguration().getAttributeQualified());
+						formatter.setElementQualified(getConfiguration().getElementQualified() != null && getConfiguration().getElementQualified());
 						Document format = formatter.format(definition);
 						this.wsdls.put(key, XMLUtils.toString(format, true, true));
 					}
@@ -203,6 +209,22 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 		return wsdls.get(key);
 	}
 
+	public static String getInputName(DefinedService service) {
+		WSDLInterface iface = null;
+		if (service.getServiceInterface().getParent() instanceof WSDLInterface) {
+			iface = (WSDLInterface) service.getServiceInterface().getParent();
+		}
+		return iface == null || iface.getOperation().getOperation().getInput() == null || iface.getOperation().getOperation().getInput().getParts().isEmpty() ? service.getId().replaceAll("^.*\\.", "") : iface.getOperation().getOperation().getInput().getParts().get(0).getElement().getName();
+	}
+	
+	public static String getOutputName(DefinedService service) {
+		WSDLInterface iface = null;
+		if (service.getServiceInterface().getParent() instanceof WSDLInterface) {
+			iface = (WSDLInterface) service.getServiceInterface().getParent();
+		}
+		return iface == null || iface.getOperation().getOperation().getOutput() == null || iface.getOperation().getOperation().getOutput().getParts().isEmpty() ? service.getId().replaceAll("^.*\\.", "") + "Response" : iface.getOperation().getOperation().getOutput().getParts().get(0).getElement().getName();
+	}
+	
 	public String getNamespace() {
 		try {
 			String namespace = getConfiguration().getNamespace();

@@ -1,6 +1,7 @@
 package be.nabu.eai.module.wsdl.provider;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.wsdl.client.WSDLInterface;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.events.api.EventHandler;
@@ -110,7 +112,11 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				String soapAction = header != null && header.getValue() != null ? header.getValue().replaceAll("\"", "").trim() : null;
 				if (soapAction != null && !soapAction.isEmpty()) {
 					for (DefinedService potential : provider.getConfiguration().getServices()) {
-						if (potential.getId().equals(soapAction)) {
+						WSDLInterface iface = null;
+						if (potential.getServiceInterface().getParent() instanceof WSDLInterface) {
+							iface = (WSDLInterface) potential.getServiceInterface().getParent();
+						}
+						if ((iface != null && soapAction.equals(iface.getOperation().getSoapAction())) || potential.getId().equals(soapAction)) {
 							service = potential;
 							break;
 						}
@@ -162,12 +168,15 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 
 				ServiceRuntime runtime = new ServiceRuntime(service, provider.getRepository().newExecutionContext(token));
-				String name = service.getId().replaceAll("^.*\\.", "");
-				ComplexContent output = runtime.run((ComplexContent) soapEnvelope.get("Body/" + name));
+				ComplexContent output = runtime.run((ComplexContent) soapEnvelope.get("Body/" + WSDLProvider.getInputName(service)));
 				ComplexType responseEnvelope = buildRequestEnvelope(service, provider.getSoapVersion(), false);
 				ComplexContent newInstance = responseEnvelope.newInstance();
-				newInstance.set("Body/" + name + "Response", output);
+				newInstance.set("Body/" + WSDLProvider.getOutputName(service), output);
 				XMLMarshaller marshaller = new XMLMarshaller(new BaseTypeInstance(responseEnvelope));
+				// set the qualified-ness
+				marshaller.setElementQualified(true);
+				marshaller.setAttributeQualified(false);
+				marshaller.setAllowQualifiedOverride(true);
 				marshaller.setPrefix(responseEnvelope.getNamespace(), "soap");
 				// the default namespace gets in the way of the elements that are not qualified
 				marshaller.setAllowDefaultNamespace(false);
@@ -211,6 +220,8 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private ComplexType buildRequestEnvelope(DefinedService service, double soapVersion, boolean isInput) {
 		Structure envelope = new Structure();
 		envelope.setName("Envelope");
+		envelope.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), true));
+		envelope.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), true));
 		envelope.setProperty(new ValueImpl<Boolean>(new AttributeQualifiedDefaultProperty(), false));
 		envelope.setProperty(new ValueImpl<Boolean>(new ElementQualifiedDefaultProperty(), true));
 		if (soapVersion == 1.2) {
@@ -221,17 +232,34 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			envelope.setNamespace("http://schemas.xmlsoap.org/soap/envelope/");
 		}
 		Structure header = new Structure();
+		header.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), true));
+		header.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), true));
 		header.setName("Header");
 		envelope.add(new ComplexElementImpl(header, envelope, new ValueImpl<Integer>(new MinOccursProperty(), 0)));
 		
 		Structure body = new Structure();
 		body.setName("Body");
+		body.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), true));
+		body.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), true));
 		body.setNamespace(envelope.getNamespace());
-		if (isInput) {
-			body.add(new ComplexElementImpl(service.getId().replaceAll("^.*\\.", ""), service.getServiceInterface().getInputDefinition(), body, new ValueImpl<String>(NamespaceProperty.getInstance(), provider.getNamespace())));
+		try {
+			if (isInput) {
+				ComplexElementImpl element = new ComplexElementImpl(WSDLProvider.getInputName(service), service.getServiceInterface().getInputDefinition(), body, new ValueImpl<String>(NamespaceProperty.getInstance(), provider.getNamespace()));
+				element.setMaintainDefaultValues(true);
+				element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), provider.getConfiguration().getAttributeQualified() != null && provider.getConfiguration().getAttributeQualified()),
+					new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), provider.getConfiguration().getElementQualified() != null && provider.getConfiguration().getElementQualified()));
+				body.add(element);
+			}
+			else {
+				ComplexElementImpl element = new ComplexElementImpl(WSDLProvider.getOutputName(service), service.getServiceInterface().getOutputDefinition(), body, new ValueImpl<String>(NamespaceProperty.getInstance(), provider.getNamespace()));
+				element.setMaintainDefaultValues(true);
+				element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), provider.getConfiguration().getAttributeQualified() != null && provider.getConfiguration().getAttributeQualified()),
+					new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), provider.getConfiguration().getElementQualified() != null && provider.getConfiguration().getElementQualified()));
+				body.add(element);
+			}
 		}
-		else {
-			body.add(new ComplexElementImpl(service.getId().replaceAll("^.*\\.", "") + "Response", service.getServiceInterface().getOutputDefinition(), body, new ValueImpl<String>(NamespaceProperty.getInstance(), provider.getNamespace())));
+		catch (IOException e) {
+			throw new RuntimeException(e);
 		}
 		envelope.add(new ComplexElementImpl(body, envelope));
 		return envelope;

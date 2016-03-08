@@ -19,6 +19,7 @@ public class WSDLProviderConfiguration {
 	private Charset charset;
 	private String namespace;
 	private Boolean importTypes;
+	private Boolean elementQualified, attributeQualified;
 
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public List<DefinedService> getServices() {
@@ -67,5 +68,17 @@ public class WSDLProviderConfiguration {
 	public void setImportTypes(Boolean importTypes) {
 		this.importTypes = importTypes;
 	}
-	
+	public Boolean getElementQualified() {
+		return elementQualified;
+	}
+	public void setElementQualified(Boolean elementQualified) {
+		this.elementQualified = elementQualified;
+	}
+	public Boolean getAttributeQualified() {
+		return attributeQualified;
+	}
+	public void setAttributeQualified(Boolean attributeQualified) {
+		this.attributeQualified = attributeQualified;
+	}
+
 }
