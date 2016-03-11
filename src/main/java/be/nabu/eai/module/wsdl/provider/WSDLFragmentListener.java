@@ -64,147 +64,149 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		try {
 			URI uri = HTTPUtils.getURI(request, false);
 			String path = URIUtils.normalize(uri.getPath());
-			if (request.getMethod().equalsIgnoreCase("POST")) {
-				Map<String, List<String>> cookies = HTTPUtils.getCookies(request.getContent().getHeaders());
-				String originalSessionId = GlueListener.getSessionId(cookies);
-				Session session = originalSessionId == null ? null : application.getSessionProvider().getSession(originalSessionId);
-				
-				// authentication tokens in the request get precedence over session-based authentication
-				AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
-				Token token = authenticationHeader == null ? null : authenticationHeader.getToken();
-				// but likely we'll have to check the session for tokens
-				if (token == null && session != null) {
-					token = (Token) session.get(GlueListener.buildTokenName(application.getRealm()));
-				}
-				else if (token != null && session != null) {
-					session.set(GlueListener.buildTokenName(application.getRealm()), token);
-				}
-				if (token != null && application.getTokenValidator() != null && !application.getTokenValidator().isValid(token)) {
-					session.destroy();
-					originalSessionId = null;
-					session = null;
-					token = null;
-				}
-				if (application.getRoleHandler() != null && provider.getConfiguration().getRoles() != null) {
-					boolean hasRole = false;
-					for (String role : provider.getConfiguration().getRoles()) {
-						if (application.getRoleHandler().hasRole(token, role)) {
-							hasRole = true;
-							break;
+			if (path.equals(provider.getFullPath(application, this.path))) {
+				if (request.getMethod().equalsIgnoreCase("POST")) {
+					Map<String, List<String>> cookies = HTTPUtils.getCookies(request.getContent().getHeaders());
+					String originalSessionId = GlueListener.getSessionId(cookies);
+					Session session = originalSessionId == null ? null : application.getSessionProvider().getSession(originalSessionId);
+					
+					// authentication tokens in the request get precedence over session-based authentication
+					AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
+					Token token = authenticationHeader == null ? null : authenticationHeader.getToken();
+					// but likely we'll have to check the session for tokens
+					if (token == null && session != null) {
+						token = (Token) session.get(GlueListener.buildTokenName(application.getRealm()));
+					}
+					else if (token != null && session != null) {
+						session.set(GlueListener.buildTokenName(application.getRealm()), token);
+					}
+					if (token != null && application.getTokenValidator() != null && !application.getTokenValidator().isValid(token)) {
+						session.destroy();
+						originalSessionId = null;
+						session = null;
+						token = null;
+					}
+					if (application.getRoleHandler() != null && provider.getConfiguration().getRoles() != null) {
+						boolean hasRole = false;
+						for (String role : provider.getConfiguration().getRoles()) {
+							if (application.getRoleHandler().hasRole(token, role)) {
+								hasRole = true;
+								break;
+							}
+						}
+						if (!hasRole) {
+							throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + provider.getConfiguration().getRoles() + "' for wsdl endpoint: " + provider.getId());
 						}
 					}
-					if (!hasRole) {
-						throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + provider.getConfiguration().getRoles() + "' for wsdl endpoint: " + provider.getId());
+					
+					// validate content type
+					String contentType = MimeUtils.getContentType(request.getContent().getHeaders());
+					if (!"application/soap+xml".equals(contentType) && !"text/xml".equals(contentType) && !"application/xml".equals(contentType)) {
+						throw new HTTPException(400, "Invalid content type: " + contentType);
 					}
-				}
-				
-				// validate content type
-				String contentType = MimeUtils.getContentType(request.getContent().getHeaders());
-				if (!"application/soap+xml".equals(contentType) && !"text/xml".equals(contentType) && !"application/xml".equals(contentType)) {
-					throw new HTTPException(400, "Invalid content type: " + contentType);
-				}
-				String encoding = MimeUtils.getCharset(request.getContent().getHeaders());
-				Charset charset = encoding == null ? provider.getCharset() : Charset.forName(encoding);
-				
-				DefinedService service = null;
-				ComplexContent soapEnvelope = null;
-				Header header = MimeUtils.getHeader("SOAPAction", request.getContent().getHeaders());
-				String soapAction = header != null && header.getValue() != null ? header.getValue().replaceAll("\"", "").trim() : null;
-				if (soapAction != null && !soapAction.isEmpty()) {
-					for (DefinedService potential : provider.getConfiguration().getServices()) {
-						WSDLInterface iface = null;
-						if (potential.getServiceInterface().getParent() instanceof WSDLInterface) {
-							iface = (WSDLInterface) potential.getServiceInterface().getParent();
-						}
-						if ((iface != null && soapAction.equals(iface.getOperation().getSoapAction())) || potential.getId().equals(soapAction)) {
-							service = potential;
-							break;
-						}
-					}
-					if (service == null) {
-						throw new HTTPException(400, "Invalid soap action: " + header.getValue());
-					}
-					// immediately parse the input using the given service
-					ComplexType requestType = buildRequestEnvelope(service, provider.getSoapVersion(), true);
-					XMLBinding binding = new XMLBinding(requestType, charset);
-					ReadableContainer<ByteBuffer> readable = ((ContentPart) request.getContent()).getReadable();
-					try {
-						soapEnvelope = binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]);
-					}
-					finally {
-						readable.close();
-					}
-				}
-				// we need to guess the service based on the input
-				else {
-					for (DefinedService potential : provider.getConfiguration().getServices()) {
-						ComplexType requestType = buildRequestEnvelope(potential, provider.getSoapVersion(), true);
-						try {
-							XMLBinding binding = new XMLBinding(requestType, charset);
-							ReadableContainer<ByteBuffer> readable = ((ContentPart) request.getContent()).getReadable();
-							try {
-								soapEnvelope = binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]);
+					String encoding = MimeUtils.getCharset(request.getContent().getHeaders());
+					Charset charset = encoding == null ? provider.getCharset() : Charset.forName(encoding);
+					
+					DefinedService service = null;
+					ComplexContent soapEnvelope = null;
+					Header header = MimeUtils.getHeader("SOAPAction", request.getContent().getHeaders());
+					String soapAction = header != null && header.getValue() != null ? header.getValue().replaceAll("\"", "").trim() : null;
+					if (soapAction != null && !soapAction.isEmpty()) {
+						for (DefinedService potential : provider.getConfiguration().getServices()) {
+							WSDLInterface iface = null;
+							if (potential.getServiceInterface().getParent() instanceof WSDLInterface) {
+								iface = (WSDLInterface) potential.getServiceInterface().getParent();
+							}
+							if ((iface != null && soapAction.equals(iface.getOperation().getSoapAction())) || potential.getId().equals(soapAction)) {
 								service = potential;
 								break;
 							}
-							finally {
-								readable.close();
+						}
+						if (service == null) {
+							throw new HTTPException(400, "Invalid soap action: " + header.getValue());
+						}
+						// immediately parse the input using the given service
+						ComplexType requestType = buildRequestEnvelope(service, provider.getSoapVersion(), true);
+						XMLBinding binding = new XMLBinding(requestType, charset);
+						ReadableContainer<ByteBuffer> readable = ((ContentPart) request.getContent()).getReadable();
+						try {
+							soapEnvelope = binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]);
+						}
+						finally {
+							readable.close();
+						}
+					}
+					// we need to guess the service based on the input
+					else {
+						for (DefinedService potential : provider.getConfiguration().getServices()) {
+							ComplexType requestType = buildRequestEnvelope(potential, provider.getSoapVersion(), true);
+							try {
+								XMLBinding binding = new XMLBinding(requestType, charset);
+								ReadableContainer<ByteBuffer> readable = ((ContentPart) request.getContent()).getReadable();
+								try {
+									soapEnvelope = binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]);
+									service = potential;
+									break;
+								}
+								finally {
+									readable.close();
+								}
+							}
+							catch (Exception e) {
+								// try next
 							}
 						}
-						catch (Exception e) {
-							// try next
+						if (service == null) {
+							throw new HTTPException(400, "Invalid input does not match any service");
 						}
 					}
-					if (service == null) {
-						throw new HTTPException(400, "Invalid input does not match any service");
+					
+					// check permissions
+					if (application.getPermissionHandler() != null) {
+						if (!application.getPermissionHandler().hasPermission(token, provider.getId(), service.getId())) {
+							throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' for wsdl endpoint: " + provider.getId());
+						}
 					}
-				}
-				
-				// check permissions
-				if (application.getPermissionHandler() != null) {
-					if (!application.getPermissionHandler().hasPermission(token, provider.getId(), service.getId())) {
-						throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' for wsdl endpoint: " + provider.getId());
-					}
-				}
-
-				ServiceRuntime runtime = new ServiceRuntime(service, provider.getRepository().newExecutionContext(token));
-				ComplexContent output = runtime.run((ComplexContent) soapEnvelope.get("Body/" + WSDLProvider.getInputName(service)));
-				ComplexType responseEnvelope = buildRequestEnvelope(service, provider.getSoapVersion(), false);
-				ComplexContent newInstance = responseEnvelope.newInstance();
-				newInstance.set("Body/" + WSDLProvider.getOutputName(service), output);
-				XMLMarshaller marshaller = new XMLMarshaller(new BaseTypeInstance(responseEnvelope));
-				// set the qualified-ness
-				marshaller.setElementQualified(true);
-				marshaller.setAttributeQualified(false);
-				marshaller.setAllowQualifiedOverride(true);
-				marshaller.setPrefix(responseEnvelope.getNamespace(), "soap");
-				// the default namespace gets in the way of the elements that are not qualified
-				marshaller.setAllowDefaultNamespace(false);
-//				XMLBinding binding = new XMLBinding(responseEnvelope, charset);
-				ByteArrayOutputStream result = new ByteArrayOutputStream();
-				marshaller.marshal(result, charset, newInstance);
-//				binding.marshal(result, newInstance);
-				byte[] byteArray = result.toByteArray();
-				List<Header> headers = new ArrayList<Header>();
-				headers.add(new MimeHeader("Content-Length", "" + byteArray.length));
-				headers.add(new MimeHeader("Content-Type", contentType + "; charset=" + charset.name()));
-				PlainMimeContentPart part = new PlainMimeContentPart(null,
-					IOUtils.wrap(byteArray, true),
-					headers.toArray(new Header[headers.size()])
-				);
-				return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
-			}
-			else if (request.getMethod().equalsIgnoreCase("GET")) {
-				Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
-				// we are requesting the WSDL
-				if (queryProperties.containsKey("wsdl") || queryProperties.containsKey("WSDL")) {
-					byte[] bytes = provider.getWSDL(application, this.path).getBytes(provider.getCharset());
+	
+					ServiceRuntime runtime = new ServiceRuntime(service, provider.getRepository().newExecutionContext(token));
+					ComplexContent output = runtime.run((ComplexContent) soapEnvelope.get("Body/" + WSDLProvider.getInputName(service)));
+					ComplexType responseEnvelope = buildRequestEnvelope(service, provider.getSoapVersion(), false);
+					ComplexContent newInstance = responseEnvelope.newInstance();
+					newInstance.set("Body/" + WSDLProvider.getOutputName(service), output);
+					XMLMarshaller marshaller = new XMLMarshaller(new BaseTypeInstance(responseEnvelope));
+					// set the qualified-ness
+					marshaller.setElementQualified(true);
+					marshaller.setAttributeQualified(false);
+					marshaller.setAllowQualifiedOverride(true);
+					marshaller.setPrefix(responseEnvelope.getNamespace(), "soap");
+					// the default namespace gets in the way of the elements that are not qualified
+					marshaller.setAllowDefaultNamespace(false);
+	//				XMLBinding binding = new XMLBinding(responseEnvelope, charset);
+					ByteArrayOutputStream result = new ByteArrayOutputStream();
+					marshaller.marshal(result, charset, newInstance);
+	//				binding.marshal(result, newInstance);
+					byte[] byteArray = result.toByteArray();
+					List<Header> headers = new ArrayList<Header>();
+					headers.add(new MimeHeader("Content-Length", "" + byteArray.length));
+					headers.add(new MimeHeader("Content-Type", contentType + "; charset=" + charset.name()));
 					PlainMimeContentPart part = new PlainMimeContentPart(null,
-						IOUtils.wrap(bytes, true),
-						new MimeHeader("Content-Length", "" + bytes.length),
-						new MimeHeader("Content-Type", "text/xml")	// application/wsdl+xml
+						IOUtils.wrap(byteArray, true),
+						headers.toArray(new Header[headers.size()])
 					);
 					return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+				}
+				else if (request.getMethod().equalsIgnoreCase("GET")) {
+					Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
+					// we are requesting the WSDL
+					if (queryProperties.containsKey("wsdl") || queryProperties.containsKey("WSDL")) {
+						byte[] bytes = provider.getWSDL(application, this.path).getBytes(provider.getCharset());
+						PlainMimeContentPart part = new PlainMimeContentPart(null,
+							IOUtils.wrap(bytes, true),
+							new MimeHeader("Content-Length", "" + bytes.length),
+							new MimeHeader("Content-Type", "text/xml")	// application/wsdl+xml
+						);
+						return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					}
 				}
 			}
 		}

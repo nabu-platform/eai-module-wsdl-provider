@@ -58,7 +58,6 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 			stop(artifact, path);
 		}
 		String wsdlPath = getFullPath(artifact, path);
-		// TODO
 		synchronized(subscriptions) {
 			WSDLFragmentListener listener = new WSDLFragmentListener(this, artifact, path);
 			EventSubscription<HTTPRequest, HTTPResponse> subscription = artifact.getDispatcher().subscribe(HTTPRequest.class, listener);
@@ -67,7 +66,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 		}
 	}
 
-	private String getFullPath(WebApplication artifact, String path) throws IOException {
+	String getFullPath(WebApplication artifact, String path) throws IOException {
 		String wsdlPath = artifact.getServerPath();
 		if (path != null && !path.isEmpty() && !path.equals("/")) {
 			if (!wsdlPath.endsWith("/")) {
@@ -78,7 +77,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 		if (getConfiguration().getPath() != null) {
 			wsdlPath += "/" + getConfiguration().getPath().replaceFirst("^[/]+", "");
 		}
-		return wsdlPath;
+		return wsdlPath.replace("//", "/");
 	}
 	
 	public Charset getCharset() {
