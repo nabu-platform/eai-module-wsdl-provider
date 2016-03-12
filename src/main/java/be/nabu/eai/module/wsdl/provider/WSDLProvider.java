@@ -91,7 +91,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 	
 	public double getSoapVersion() {
 		try {
-			return getConfiguration().getSoapVersion() == null ? 1.1 : getConfiguration().getSoapVersion();
+			return getConfiguration().getSoapVersion() == null ? 1.1 : getConfiguration().getSoapVersion().getVersion();
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);

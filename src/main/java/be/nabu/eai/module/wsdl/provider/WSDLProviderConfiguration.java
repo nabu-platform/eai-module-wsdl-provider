@@ -12,7 +12,7 @@ import be.nabu.libs.services.api.DefinedService;
 @XmlRootElement(name = "wsdlProvider")
 public class WSDLProviderConfiguration {
 	
-	private Double soapVersion;
+	private SOAPVersion soapVersion;
 	private List<DefinedService> services;
 	private String path;
 	private List<String> roles;
@@ -29,10 +29,10 @@ public class WSDLProviderConfiguration {
 		this.services = services;
 	}
 
-	public Double getSoapVersion() {
+	public SOAPVersion getSoapVersion() {
 		return soapVersion;
 	}
-	public void setSoapVersion(Double soapVersion) {
+	public void setSoapVersion(SOAPVersion soapVersion) {
 		this.soapVersion = soapVersion;
 	}
 	
