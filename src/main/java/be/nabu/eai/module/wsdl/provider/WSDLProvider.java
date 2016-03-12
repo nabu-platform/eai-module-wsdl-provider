@@ -111,6 +111,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 						String wsdlName = getId().replaceAll("^.*\\.", "");
 						portType.setName(wsdlName + "Port");
 						portType.setDefinition(definition);
+						definition.setSoapVersion(getSoapVersion());
 						
 						BindingImpl binding = new BindingImpl();
 						binding.setDefinition(definition);
