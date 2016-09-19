@@ -94,6 +94,12 @@
 		</dependency>
 		<dependency>
 			<groupId>be.nabu.libs.types</groupId>
+			<artifactId>types-definition-xml</artifactId>
+			<version>1.0-SNAPSHOT</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>be.nabu.libs.types</groupId>
 			<artifactId>types-definition-xsd</artifactId>
 			<version>1.0-SNAPSHOT</version>
 			<scope>provided</scope>
