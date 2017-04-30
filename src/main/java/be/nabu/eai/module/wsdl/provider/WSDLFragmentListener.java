@@ -9,19 +9,18 @@ import java.util.List;
 import java.util.Map;
 
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.wsdl.client.WSDLInterface;
 import be.nabu.libs.authentication.api.Authenticator;
+import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.events.api.EventHandler;
 import be.nabu.libs.http.HTTPCodes;
 import be.nabu.libs.http.HTTPException;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
-import be.nabu.libs.http.api.server.AuthenticationHeader;
-import be.nabu.libs.http.api.server.Session;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
-import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.api.DefinedService;
@@ -66,39 +65,10 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			String path = URIUtils.normalize(uri.getPath());
 			if (path.equals(provider.getFullPath(application, this.path))) {
 				if (request.getMethod().equalsIgnoreCase("POST")) {
-					Map<String, List<String>> cookies = HTTPUtils.getCookies(request.getContent().getHeaders());
-					String originalSessionId = GlueListener.getSessionId(cookies);
-					Session session = originalSessionId == null ? null : application.getSessionProvider().getSession(originalSessionId);
-					
-					// authentication tokens in the request get precedence over session-based authentication
-					AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
-					Token token = authenticationHeader == null ? null : authenticationHeader.getToken();
-					// but likely we'll have to check the session for tokens
-					if (token == null && session != null) {
-						token = (Token) session.get(GlueListener.buildTokenName(application.getRealm()));
-					}
-					else if (token != null && session != null) {
-						session.set(GlueListener.buildTokenName(application.getRealm()), token);
-					}
-					if (token != null && application.getTokenValidator() != null && !application.getTokenValidator().isValid(token)) {
-						session.destroy();
-						originalSessionId = null;
-						session = null;
-						token = null;
-					}
-					if (application.getRoleHandler() != null && provider.getConfiguration().getRoles() != null) {
-						boolean hasRole = false;
-						for (String role : provider.getConfiguration().getRoles()) {
-							if (application.getRoleHandler().hasRole(token, role)) {
-								hasRole = true;
-								break;
-							}
-						}
-						if (!hasRole) {
-							throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + provider.getConfiguration().getRoles() + "' for wsdl endpoint: " + provider.getId());
-						}
-					}
-					
+					Token token = WebApplicationUtils.getToken(application, request);
+					Device device = WebApplicationUtils.getDevice(application, request, token);
+					WebApplicationUtils.checkRole(application, token, provider.getConfig().getRoles());
+
 					// validate content type
 					String contentType = MimeUtils.getContentType(request.getContent().getHeaders());
 					if (!"application/soap+xml".equals(contentType) && !"text/xml".equals(contentType) && !"application/xml".equals(contentType)) {
@@ -168,7 +138,15 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 					}
 	
+					HTTPResponse checkRateLimits = WebApplicationUtils.checkRateLimits(application, token, device, service.getId(), null, request);
+					if (checkRateLimits != null) {
+						return checkRateLimits;
+					}
+					
 					ServiceRuntime runtime = new ServiceRuntime(service, provider.getRepository().newExecutionContext(token));
+					runtime.getContext().put("session", WebApplicationUtils.getSession(application, request));
+					runtime.getContext().put("device", device);
+					
 					ComplexContent output = runtime.run((ComplexContent) soapEnvelope.get("Body/" + WSDLProvider.getInputName(service)));
 					ComplexType responseEnvelope = buildRequestEnvelope(service, provider.getSoapVersion(), false);
 					ComplexContent newInstance = responseEnvelope.newInstance();
