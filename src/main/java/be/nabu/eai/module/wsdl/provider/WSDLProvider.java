@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.w3c.dom.Document;
 
+import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.virtual.VirtualHostArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
@@ -178,8 +179,9 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 						servicePort.setDefinition(definition);
 						servicePort.setName(wsdlName + "Port");
 						VirtualHostArtifact virtualHost = artifact.getConfiguration().getVirtualHost();
-						boolean secure = virtualHost.getConfiguration().getServer().getConfiguration().getKeystore() != null;
-						Integer port = virtualHost.getConfiguration().getServer().getConfiguration().getPort();
+						HTTPServerArtifact server = virtualHost.getConfiguration().getServer();
+						boolean secure = server.getConfig().isProxied() ? server.getConfig().isProxySecure() : server.getConfiguration().getKeystore() != null;
+						Integer port = server.getConfig().isProxied() ? server.getConfig().getProxyPort() : server.getConfiguration().getPort();
 						String endpoint = secure ? "https://" : "http://";
 						String host = virtualHost.getConfiguration().getHost();
 						if (host == null) {
