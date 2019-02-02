@@ -72,7 +72,7 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					// validate content type
 					String contentType = MimeUtils.getContentType(request.getContent().getHeaders());
 					if (!"application/soap+xml".equals(contentType) && !"text/xml".equals(contentType) && !"application/xml".equals(contentType)) {
-						throw new HTTPException(400, "Invalid content type: " + contentType);
+						throw new HTTPException(415, "Invalid content type: " + contentType, token);
 					}
 					String encoding = MimeUtils.getCharset(request.getContent().getHeaders());
 					Charset charset = encoding == null ? provider.getCharset() : Charset.forName(encoding);
@@ -93,7 +93,7 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							}
 						}
 						if (service == null) {
-							throw new HTTPException(400, "Invalid soap action: " + header.getValue());
+							throw new HTTPException(400, "Invalid soap action: " + header.getValue(), token);
 						}
 						// immediately parse the input using the given service
 						ComplexType requestType = buildRequestEnvelope(service, provider.getSoapVersion(), true);
@@ -127,14 +127,14 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							}
 						}
 						if (service == null) {
-							throw new HTTPException(400, "Invalid input does not match any service");
+							throw new HTTPException(400, "Invalid input does not match any service", token);
 						}
 					}
 					
 					// check permissions
 					if (application.getPermissionHandler() != null) {
 						if (!application.getPermissionHandler().hasPermission(token, provider.getId(), service.getId())) {
-							throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' for wsdl endpoint: " + provider.getId());
+							throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' for wsdl endpoint: " + provider.getId(), token);
 						}
 					}
 	
