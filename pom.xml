@@ -50,11 +50,6 @@
 		</dependency>
 		<dependency>
 			<groupId>nabu</groupId>
-			<artifactId>eai-module-wsdl-client</artifactId>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>nabu</groupId>
 			<artifactId>eai-module-web-application</artifactId>
 			<scope>provided</scope>
 		</dependency>
@@ -93,6 +88,16 @@
 		<dependency>
 			<groupId>be.nabu.libs.wsdl</groupId>
 			<artifactId>wsdl-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>be.nabu.libs.wsdl</groupId>
+			<artifactId>wsdl-parser</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>be.nabu.libs.services</groupId>
+			<artifactId>services-wsdl</artifactId>
 			<scope>provided</scope>
 		</dependency>
 		

@@ -10,7 +10,6 @@ import java.util.Map;
 
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
-import be.nabu.eai.module.wsdl.client.WSDLInterface;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.Token;
@@ -24,6 +23,7 @@ import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.api.DefinedService;
+import be.nabu.libs.services.wsdl.WSDLInterface;
 import be.nabu.libs.types.BaseTypeInstance;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
