@@ -47,6 +47,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();
 	private Map<String, String> wsdls = new HashMap<String, String>();
+	private boolean hidePrivatelyScoped = true;
 	
 	public WSDLProvider(String id, ResourceContainer<?> directory, Repository repository) {
 		super(id, directory, repository, "wsdl-provider.xml", WSDLProviderConfiguration.class);
@@ -199,6 +200,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 						WSDLFormatter formatter = new WSDLFormatter();
 						formatter.setAttributeQualified(getConfiguration().getAttributeQualified() != null && getConfiguration().getAttributeQualified());
 						formatter.setElementQualified(getConfiguration().getElementQualified() != null && getConfiguration().getElementQualified());
+						formatter.setHidePrivatelyScoped(hidePrivatelyScoped);
 						Document format = formatter.format(definition);
 						this.wsdls.put(key, XMLUtils.toString(format, true, true));
 					}
@@ -266,4 +268,13 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 	private String getKey(WebApplication artifact, String path) {
 		return artifact.getId() + ":" + path;
 	}
+
+	public boolean isHidePrivatelyScoped() {
+		return hidePrivatelyScoped;
+	}
+
+	public void setHidePrivatelyScoped(boolean hidePrivatelyScoped) {
+		this.hidePrivatelyScoped = hidePrivatelyScoped;
+	}
+	
 }
