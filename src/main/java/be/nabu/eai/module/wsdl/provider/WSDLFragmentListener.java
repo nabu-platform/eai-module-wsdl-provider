@@ -144,6 +144,8 @@ public class WSDLFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 					
 					ServiceRuntime runtime = new ServiceRuntime(service, provider.getRepository().newExecutionContext(token));
+					runtime.setSlaProvider(application);
+					
 					runtime.getContext().put("session", WebApplicationUtils.getSession(application, request));
 					runtime.getContext().put("device", device);
 					
