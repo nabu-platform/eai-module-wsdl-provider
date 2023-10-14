@@ -180,7 +180,7 @@ public class WSDLProvider extends JAXBArtifact<WSDLProviderConfiguration> implem
 						servicePort.setDefinition(definition);
 						servicePort.setName(wsdlName + "Port");
 						VirtualHostArtifact virtualHost = artifact.getConfiguration().getVirtualHost();
-						HTTPServerArtifact server = virtualHost.getConfiguration().getServer();
+						HTTPServerArtifact server = virtualHost.getServer();
 						boolean secure = server.isSecure();
 						Integer port = server.getConfig().isProxied() ? server.getConfig().getProxyPort() : server.getConfiguration().getPort();
 						String endpoint = secure ? "https://" : "http://";
