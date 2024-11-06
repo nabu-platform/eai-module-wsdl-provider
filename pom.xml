@@ -1,19 +1,14 @@
-<?xml version="1.0"?>
-<project
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>nabu</groupId>
 	<artifactId>eai-module-wsdl-provider</artifactId>
-	<version>${nabu-eai-module-wsdl-provider-version}</version>
+	<version>1.4-SNAPSHOT</version>
 	<name>eai-module-wsdl-provider</name>
-
 	<parent>
 		<groupId>be.nabu</groupId>
 		<artifactId>core</artifactId>
 		<version>1.0-SNAPSHOT</version>
 	</parent>
-
 	<build>
 		<plugins>
 			<plugin>
@@ -26,7 +21,6 @@
 			</plugin>
 		</plugins>
 	</build>
-
 	<dependencies>
 		<dependency>
 			<groupId>be.nabu.eai</groupId>
@@ -58,18 +52,15 @@
 			<artifactId>eai-module-http-server</artifactId>
 			<scope>provided</scope>
 		</dependency>
-		
 		<dependency>
 			<groupId>nabu</groupId>
 			<artifactId>eai-module-keystore</artifactId>
 			<scope>provided</scope>
 		</dependency>
-		
 		<dependency>
 			<groupId>be.nabu.libs.wsdl</groupId>
 			<artifactId>wsdl-formatter</artifactId>
 		</dependency>
-		
 		<dependency>
 			<groupId>be.nabu.utils</groupId>
 			<artifactId>utils-xml</artifactId>
@@ -100,7 +91,6 @@
 			<artifactId>services-wsdl</artifactId>
 			<scope>provided</scope>
 		</dependency>
-		
 		<dependency>
 			<groupId>be.nabu.libs.converter</groupId>
 			<artifactId>converter-api</artifactId>
@@ -147,5 +137,4 @@
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
-
 </project>
